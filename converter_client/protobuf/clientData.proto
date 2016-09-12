@@ -1,0 +1,8 @@
+
+
+message ClientData {
+	required string output_format = 1;
+	required string filename = 2;
+	required bytes source_data = 3;
+	required int32 result_code = 4;
+}
