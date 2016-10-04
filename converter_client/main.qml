@@ -1,6 +1,6 @@
 
-import QtQuick 2.7
-import QtQuick.Controls 2.0
+import QtQuick 2.5
+import QtQuick.Controls 1.4
 import QtQuick.Dialogs 1.2
 
 ApplicationWindow {
@@ -65,14 +65,14 @@ ApplicationWindow {
     FileDialog {
         id: fileDialog
         title: "Please choose a file"
-        folder: shortcuts.home
         onAccepted: {
-            iodata.sendData(fileDialog.fileUrls, formatBoxId.displayText)
+            iodata.sendData(fileDialog.fileUrls, formatBoxId.currentText)
         }
         onRejected: {
             console.log("Canceled")
         }
     }
+
 
     title: "AppWindow title"
 

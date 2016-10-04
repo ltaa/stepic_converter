@@ -8,14 +8,18 @@ SOURCES += main.cpp \
     converterworker.cpp \
     rwhandler.cpp \
     converter.cpp \
-    protobuf/clientData.pb.cc
+    protobuf/clientData.pb.cc \
+    clienthandler.cpp \
+    timer.cpp
 
 HEADERS += \
     converterserver.h \
     converterworker.h \
     rwhandler.h \
     converter.h \
-    protobuf/clientData.pb.h
+    protobuf/clientData.pb.h \
+    clienthandler.h \
+    timer.h
 
 
 LIBS += -lev -lavcodec-ffmpeg -lavutil-ffmpeg -lavformat-ffmpeg -lavresample-ffmpeg -lswresample-ffmpeg -lprotobuf

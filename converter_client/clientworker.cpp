@@ -12,7 +12,7 @@ ClientWorker::ClientWorker(QObject *parent) : QObject(parent), host("127.0.0.1")
     readed_data = 0;
 }
 
-
+#include <unistd.h>
 void ClientWorker::sendData(const QString &filepath, const QString &oformat) {
 
     QFile file(filepath);
@@ -34,7 +34,6 @@ void ClientWorker::sendData(const QString &filepath, const QString &oformat) {
 
     //need little/big endiang converting
     uint64_t size_data = serialized_data.size();
-
 
     sock->write((char *)&size_data, sizeof(size_data));
     sock->write(serialized_data.c_str(), serialized_data.size());

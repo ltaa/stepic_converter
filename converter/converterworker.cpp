@@ -1,5 +1,5 @@
 #include "converterworker.h"
-
+#include "timer.h"
 
 ConverterWorker::ConverterWorker(int sd)
 {
@@ -80,17 +80,21 @@ void ConverterWorker::readDataCallback(ev::io &watcher, int) {
 
     int ret;
 
-    RWHandlerCommonImpl &rwData = client_hash[watcher.fd];
+    ClientHandler &client = client_hash[watcher.fd];
+    RWHandlerCommonImpl &rwData = client.getRwObject();
+    ev::timer &timer_event = client.getTimerEvent();
+    timer_event.stop();
+
     if ((ret = rwData.read()) == RWHandlerCommonImpl::RD_AGAIN) {
+        timer_event.again();
         return;
     }
     else if(ret == RWHandlerCommonImpl::RD_OK) {
-        RWHandlerCommonImpl &rwObject =  client_hash[watcher.fd];
 
         ClientData inputData;
-        if(!inputData.ParseFromString(rwObject.getData())) {
+        if(!inputData.ParseFromString(rwData.getData())) {
             std::fprintf(stderr, "Could not parse input data\n");
-            closeConnection(watcher);
+            closeConnection(watcher.fd);
             return;
         }
 
@@ -99,7 +103,7 @@ void ConverterWorker::readDataCallback(ev::io &watcher, int) {
         AudioConverterCommonImpl converter;
         if(converter.run(inputData, outputData)) {
             std::fprintf(stderr, "Could not converted input data\n");
-            closeConnection(watcher);
+            closeConnection(watcher.fd);
             return;
         }
 
@@ -108,20 +112,23 @@ void ConverterWorker::readDataCallback(ev::io &watcher, int) {
         std::fprintf(stderr, "output string size %lu\n", outputString.size());
         std::fprintf(stderr, "output source_data size %lu\n", outputData.source_data().size());
 
-        rwObject.setData(outputString);
+        rwData.setData(outputString);
 
         watcher.stop();
         watcher.set<ConverterWorker, &ConverterWorker::writeDataCallback> (this);
         watcher.set(watcher.fd, ev::WRITE);
         watcher.start();
+        timer_event.again();
 
     } else {
-        if (RWHandlerCommonImpl::CONNECTION_CLOSED)
+        if (ret == RWHandlerCommonImpl::CONNECTION_CLOSED)
             std::fprintf(stderr, "closing %i connection\n", watcher.fd);
+        else if(ret == RWHandlerCommonImpl::TOO_BIG_DATA)
+            std::fprintf(stderr, "closing, too big data size\n");
         else
             std::fprintf(stderr, "IO error, closing %i connection\n", watcher.fd);
 
-        closeConnection(watcher);
+        closeConnection(watcher.fd);
     }
 }
 
@@ -130,8 +137,13 @@ void ConverterWorker::writeDataCallback(ev::io &watcher, int) {
 
     int ret;
 
-    RWHandlerCommonImpl &rwData = client_hash[watcher.fd];
+    ClientHandler &client = client_hash[watcher.fd];
+    RWHandlerCommonImpl &rwData = client.getRwObject();
+    ev::timer &timer_event = client.getTimerEvent();
+    timer_event.stop();
+
     if ((ret = rwData.write()) == RWHandlerCommonImpl::WR_AGAIN) {
+        timer_event.again();
 
         return;
     } else {
@@ -143,12 +155,7 @@ void ConverterWorker::writeDataCallback(ev::io &watcher, int) {
             errno = 0;
         }
 
-        shutdown(watcher.fd, SHUT_RDWR);
-        close(watcher.fd);
-        client_hash.erase(watcher.fd);
-        watcher.stop();
-        delete &watcher;
-
+        closeConnection(watcher.fd);
     }
 
 }
@@ -171,24 +178,35 @@ void ConverterWorker::addClientCallback(ev::io &watcher, int) {
         std::fprintf(stderr, "Invalid set O_NONBLOCK on %i fd\n", fd);
     }
 
+    ev::io *io_event = new ev::io(_loop);
+    io_event->set<ConverterWorker, &ConverterWorker::readDataCallback> (this);
+    io_event->set(fd, ev::READ);
 
-    ev::io *event = new ev::io(_loop);
-    event->set<ConverterWorker, &ConverterWorker::readDataCallback> (this);
-    event->set(fd, ev::READ);
-    event->start();
 
-    RWHandlerCommonImpl rwData(fd);
-    client_hash[fd] = std::move(rwData);
+    Timer *timer_event = new Timer(_loop);
+    timer_event->setFd(fd);
+    timer_event->set<ConverterWorker, &ConverterWorker::timerCallback> (this);
+    timer_event->set(30., 0.);
 
+    ClientHandler client(io_event, timer_event);
+    client_hash[fd] = std::move(client);
+
+    timer_event->start();
+    io_event->start();
 
     std::fprintf(stderr, "adding connection fd %i\n", fd);
 
 }
 
-void ConverterWorker::closeConnection(ev::io &watcher) {
-    watcher.stop();
-    shutdown(watcher.fd, SHUT_RDWR);
-    close(watcher.fd);
-    client_hash.erase(watcher.fd);
-    delete &watcher;
+void ConverterWorker::timerCallback(ev::timer &watcher, int) {
+
+    Timer &cur_watcher = static_cast<Timer&> (watcher);
+    std::fprintf(stderr, "Timeout, closing fd %i\n", cur_watcher.getFd());
+
+    client_hash.erase(cur_watcher.getFd());
+
+}
+
+void ConverterWorker::closeConnection(int fd) {
+    client_hash.erase(fd);
 }

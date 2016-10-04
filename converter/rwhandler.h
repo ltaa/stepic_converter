@@ -7,7 +7,7 @@
 class RWHandlerInterface
 {
 public:
-    enum {RD_ERROR, RD_AGAIN, RD_OK, WR_ERROR, WR_AGAIN, WR_OK, CONNECTION_CLOSED};
+    enum {RD_ERROR, RD_AGAIN, RD_OK, WR_ERROR, WR_AGAIN, WR_OK, TOO_BIG_DATA, CONNECTION_CLOSED};
     RWHandlerInterface();
     virtual int read() = 0;
     virtual int write() = 0;
@@ -32,6 +32,9 @@ public:
     RWHandlerCommonImpl(const RWHandlerCommonImpl &src) = default;
     RWHandlerCommonImpl& operator =(const RWHandlerCommonImpl &src) = default;
 
+    size_t getMaxReadData() const;
+    void setMaxReadData(const size_t &value);
+
 private:
     int readSize();
     int readData();
@@ -43,6 +46,7 @@ private:
     size_t readed_data;
     std::string _source_data;
     int (RWHandlerCommonImpl::*func) ();
+    size_t maxReadData;
 };
 
 

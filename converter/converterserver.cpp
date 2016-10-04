@@ -2,7 +2,6 @@
 
 
 ConverterServer::ConverterServer() : avail_cpu(1) {
-
 }
 
 int ConverterServer::addAddress(const std::string &ipaddr, int port) {

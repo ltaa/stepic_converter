@@ -16,6 +16,7 @@ RWHandlerCommonImpl::RWHandlerCommonImpl(int sd)
     readed_data = 0;
     data_len = 0;
     func = &RWHandlerCommonImpl::readSize;
+    maxReadData = 0;
 }
 
 int RWHandlerCommonImpl::read() {
@@ -78,7 +79,6 @@ RWHandlerCommonImpl::RWHandlerCommonImpl(RWHandlerCommonImpl &&_src)
     _src.readed_data = 0;
     func = nullptr;
 
-
 }
 
 
@@ -88,9 +88,12 @@ inline int RWHandlerCommonImpl::readSize() {
     while(true) {
         ssize_t len = recv(_sd, &data_len + readed_data, sizeof(uint64_t) - readed_data, MSG_NOSIGNAL);
 
-        //need reestricted maxsize data
-
         if(len + readed_data == sizeof(uint64_t)) {
+            if(data_len > 0 && data_len > maxReadData) {
+                func = nullptr;
+                return TOO_BIG_DATA;
+            }
+
             readed_data = 0;
             _source_data.resize(data_len);
             func = &RWHandlerCommonImpl::readData;
@@ -120,7 +123,7 @@ int RWHandlerCommonImpl::readData() {
         ssize_t len = recv(_sd, &_source_data[readed_data], data_len - readed_data, MSG_NOSIGNAL);
 
         if(len + readed_data == data_len) {
-            //debug
+
             std::fprintf(stderr, "string size %lu\n", _source_data.size());
 
             readed_data = 0;
@@ -188,4 +191,14 @@ int RWHandlerCommonImpl::writeData() {
         }
     }
 
+}
+
+size_t RWHandlerCommonImpl::getMaxReadData() const
+{
+    return maxReadData;
+}
+
+void RWHandlerCommonImpl::setMaxReadData(const size_t &value)
+{
+    maxReadData = value;
 }
