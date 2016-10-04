@@ -24,7 +24,7 @@ ClientHandler &ClientHandler::operator=(ClientHandler &&src) {
     io_event_ = src.io_event_;
     timer_event_ = src.timer_event_;
 
-    src.fd_ = -1;
+
     src.io_event_ = nullptr;
     src.timer_event_ = nullptr;
 
